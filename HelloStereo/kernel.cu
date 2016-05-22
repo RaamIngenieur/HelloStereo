@@ -24,26 +24,29 @@ __global__ void erodeKernel(unsigned char* img, unsigned char* imgout)
 
 	unsigned char *in, *out;
 
-	int i = blockIdx.x*blockDim.x + threadIdx.x;
+	int row = gridDim.x, column = blockDim.x, r = blockIdx.x, c = threadIdx.x;
+
+	int i = r*column + c;
 
 	in = img + i;
 	out = imgout + i;
 
 	*out = *in;
 
-	if ((blockIdx.x != 0) && (blockIdx.x != gridDim.x - 1) && (threadIdx.x != 0) && (threadIdx.x != blockDim.x - 1))
+	if ((r > 1) && (r < (row - 2)) && (c > 1) && (c < (column - 2)))
 	{
-		for (int k = -1; k <= 1; k++)
+		for (int k = -2; k <= 2; k++)
 		{
-			for (int l = -1; l <= 1; l++)
+			for (int l = -2; l <= 2; l++)
 			{
-				if (*(in + k*blockDim.x + l) < *out)
+				if (*(in + k*column + l) < *out)
 				{
-					*out = *(in + k*blockDim.x + l);
+					*out = *(in + k*column + l);
 				}
 			}
 		}
 	}
+
 
 }
 
@@ -52,26 +55,30 @@ __global__ void dilateKernel(unsigned char* img, unsigned char* imgout)
 
 	unsigned char *in, *out;
 
-	int i = blockIdx.x*blockDim.x + threadIdx.x;
+	int row = gridDim.x, column = blockDim.x, r = blockIdx.x, c = threadIdx.x;
+
+	int i = r*column + c;
 
 	in = img + i;
 	out = imgout + i;
 
 	*out = *in;
 
-	if ((blockIdx.x != 0) && (blockIdx.x != gridDim.x - 1) && (threadIdx.x != 0) && (threadIdx.x != blockDim.x - 1))
+
+	if ((r > 1) && (r < (row - 2)) && (c > 1) && (c < (column - 2)))
 	{
-		for (int k = -1; k <= 1; k++)
+		for (int k = -2; k <= 2; k++)
 		{
-			for (int l = -1; l <= 1; l++)
+			for (int l = -2; l <= 2; l++)
 			{
-				if (*(in + k*blockDim.x + l) > *out)
+				if (*(in + k*column + l) > *out)
 				{
-					*out = *(in + k*blockDim.x + l);
+					*out = *(in + k*column + l);
 				}
 			}
 		}
 	}
+
 
 }
 
@@ -82,12 +89,14 @@ __global__ void ct11Kernel(unsigned char* img, unsigned long* imgout)
 	unsigned char *in;
 	unsigned long * out;
 
-	int i = blockIdx.x*blockDim.x + threadIdx.x,BitCnt = 0;
+	int row = gridDim.x, column = blockDim.x, r = blockIdx.x, c = threadIdx.x;
+
+	int i = r*column + c, BitCnt=0;
 
 	in = img + i;
 	out = imgout + i * 2;
 
-	if ((blockIdx.x > 4) && (blockIdx.x < gridDim.x - 5) && (threadIdx.x > 4) && (threadIdx.x < blockDim.x - 5))
+	if ((r > 4) && (r < row - 5) && (c > 4) && (c < column - 5))
 	{
 		for (int k = -5; k <= 5; k++)
 		{
@@ -97,7 +106,7 @@ __global__ void ct11Kernel(unsigned char* img, unsigned long* imgout)
 				{
 					*out = *out << 1;
 
-					if (*(in + k*blockDim.x + l) < *in)
+					if (*(in + k*column + l) < *in)
 					{
 						*out = *out + 1;
 					}
@@ -123,9 +132,11 @@ __global__ void hammKernel(unsigned short* hamm)
 __global__ void xorKernel(unsigned long* img1, unsigned long* img2, unsigned char* xorsum, int Dvalue)
 {
 	unsigned long xor;
-	int i = blockIdx.x*blockDim.x + threadIdx.x;
+	int r = blockIdx.x,column = blockDim.x, c = threadIdx.x;
 
-	if (threadIdx.x < blockDim.x - Dvalue)
+	int i = r*column + c;
+
+	if (c < column - Dvalue)
 	{
 		xor = img1[(i+Dvalue) * 2] ^ img2[i * 2];
 		xorsum[i] = __popcll(xor);
@@ -137,38 +148,47 @@ __global__ void xorKernel(unsigned long* img1, unsigned long* img2, unsigned cha
 
 __global__ void yaddKernel(unsigned char* xorsum, unsigned short* hammy, int Dvalue)
 {
-	int i = blockIdx.x*blockDim.x + threadIdx.x;
-	unsigned short *hammyc; 
+	int row = gridDim.x, column = blockDim.x, r = blockIdx.x, c = threadIdx.x;
+
+	int i = r*column + c;
+
+	unsigned short *hammyc;
+	unsigned char *xorc;
 	hammyc = hammy + i;
+	xorc = xorsum + i;
 	*hammyc = 0;
 
-	if ((blockIdx.x > 5) && (blockIdx.x < gridDim.x - 7) && (threadIdx.x < blockDim.x - Dvalue))
+	if ((r > 5) && (r < row - 7) && (c < column - Dvalue))
 	{
 		for (int k = -6; k <= 6; k++)
 		{
-			*hammyc += *(xorsum + (i + k)*blockDim.x);
+			*hammyc += *(xorc + k*column);
 		}
-
+		
 	}
 
 }
 
 __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned char* dm, int Dvalue)
 {
-	int i = blockIdx.x*blockDim.x + threadIdx.x;
-	unsigned short hammc = 0;
+	int row = gridDim.x, column = blockDim.x, r = blockIdx.x, c = threadIdx.x;
 
-	if ((blockIdx.x > 5) && (blockIdx.x < gridDim.x - 7) && (threadIdx.x > 5) && (threadIdx.x < blockDim.x - Dvalue))
+	int i = r*column + c;
+
+	unsigned short hammc = 0,*hammyc = hammy +i, *hammmc = hamm +i;
+	unsigned char* dmc = dm + i;
+
+	if ((r > 5) && (r < row - 7) && (c > 5) && (c < column - Dvalue))
 	{
 		for (int k = -6; k <= 6; k++)
 		{
-			hammc += *(hammy + i + k);
+			hammc += *(hammyc + k);
 		}
 
-		if (hammc < hamm[i])
+		if (hammc < *hammmc)
 		{
-			hamm[i] = hammc;
-			dm[i] = Dvalue;
+			*hammmc = hammc;
+			*dmc = Dvalue;
 		}
 	}
 
@@ -192,66 +212,75 @@ int main()
 	N = row*column;
 
 	std::cout << row << std::endl<< column << std::endl;
+	std::cout << cap2.get(CAP_PROP_FRAME_HEIGHT) << std::endl << cap2.get(CAP_PROP_FRAME_WIDTH) << std::endl;
 
-	unsigned char *d_x, *d_y,*x;
+	unsigned char *d_x1, *d_y1, *d_z1, *d_x2, *d_y2, *d_z2, *xor, *dm;
 	unsigned short *hammy, *hamm;
 	unsigned long *ct_1, *ct_2;
 
-	x = (unsigned char*)malloc(N*sizeof(unsigned char));
-
-	cudaMalloc(&d_x, N*sizeof(unsigned char));
-	cudaMalloc(&d_x, N*sizeof(unsigned char));
+	cudaMalloc(&d_x1, N*sizeof(unsigned char));
+	cudaMalloc(&d_y1, N*sizeof(unsigned char));
+	cudaMalloc(&d_z1, N*sizeof(unsigned char));
+	cudaMalloc(&d_x2, N*sizeof(unsigned char));
+	cudaMalloc(&d_y2, N*sizeof(unsigned char));
+	cudaMalloc(&d_z2, N*sizeof(unsigned char));
+	cudaMalloc(&xor, N*sizeof(unsigned char));
+	cudaMalloc(&dm, N*sizeof(unsigned char));
 	cudaMalloc(&hammy, N*sizeof(unsigned short));
 	cudaMalloc(&hamm, N*sizeof(unsigned short));
 	cudaMalloc(&ct_1, N*2*sizeof(unsigned long));
 	cudaMalloc(&ct_2, N*2*sizeof(unsigned long));
 
-	Mat frame,gray;
+	Mat frame, gray, out = Mat(row, column, CV_8UC1, Scalar(255));
+
 	for (;;)
 	{
 		cap >> frame; // get a new frame from camera
 		cvtColor(frame, gray, CV_BGR2GRAY);
 
-		x = gray.data;
 		
-		cudaMemcpy(d_x, x, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
-		negateKernel << <(N + 255) / 256, 256 >> >(d_x, N);
+		cudaMemcpy(d_x1, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);;
 
-/*		erodeKernel <<<row, column >>>(d_x, d_y);
-		dilateKernel << <row, column >> >(d_y, d_x);
-		ct11Kernel << <row, column >> >(d_x, ct_1);
-*/
-		cudaMemcpy(x, d_x, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
+		erodeKernel << <row, column >> >(d_x1, d_y1);
+		cudaDeviceSynchronize();
+ 	    dilateKernel << <row, column >> >(d_y1, d_z1);
+		cudaDeviceSynchronize();
+		ct11Kernel << <row, column >> >(d_z1, ct_1);
 
-		imshow("Camera 1",gray);
+		cudaMemcpy(out.data, d_z1, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
+
+		imshow("Camera 1",out);
 
 
-/*		cap2 >> frame; // get a new frame from camera
+		cap2 >> frame; // get a new frame from camera
 		cvtColor(frame, gray, CV_BGR2GRAY);
 
-		cudaMemcpy(d_x, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
-		erodeKernel << <row, column >> >(d_x, d_y);
-		dilateKernel << <row, column >> >(d_y, d_x);
-		ct11Kernel << <row, column >> >(d_x, ct_2);
-		cudaMemcpy(gray.data, d_x, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
+		cudaMemcpy(d_x2, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
+		erodeKernel << <row, column >> >(d_x2, d_y2);
+		cudaDeviceSynchronize();
+		dilateKernel << <row, column >> >(d_y2, d_z2);
+		cudaDeviceSynchronize();
+		ct11Kernel << <row, column >> >(d_z2, ct_2);
+		cudaMemcpy(out.data, d_z2, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-		imshow("Camera 2", gray);
+		imshow("Camera 2", out);
 
 		hammKernel << <row, column >> >(hamm);
 
-		for (int Dvalue = 100; Dvalue >= 0; Dvalue--)
+		for (int Dvalue = 200; Dvalue >= 0; Dvalue--)
 		{
-			xorKernel << <row, column >> >(ct_1, ct_2, d_x, Dvalue);
-			yaddKernel << <row, column >> >(d_x, hammy, Dvalue);
-			dmKernel << <row, column >> >(hammy, hamm, d_y, Dvalue);
+			cudaDeviceSynchronize();
+			xorKernel << <row, column >> >(ct_1, ct_2, xor, Dvalue);
+			cudaDeviceSynchronize();
+			yaddKernel << <row, column >> >(xor, hammy, Dvalue);
+			cudaDeviceSynchronize();
+			dmKernel << <row, column >> >(hammy, hamm, dm, Dvalue);
 		}
 
-		cudaMemcpy(x, d_y, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
-
-		gray = Mat(row, column, CV_8UC1, x);
+		cudaMemcpy(gray.data, dm, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
 		imshow("DM", gray);
-*/
+
 
 		if (waitKey(1) >= 0) break;
 	}
