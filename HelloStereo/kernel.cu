@@ -3,6 +3,7 @@
 #include "math_functions.hpp"
 
 #include <stdio.h>
+#include <typeinfo>
 
 #include "opencv2/opencv.hpp"
 
@@ -115,14 +116,14 @@ __global__ void ct11Kernel(unsigned char* img, unsigned long* imgout)
 
 __global__ void hammKernel(unsigned short* hamm)
 {
-	int i = blockIdx.x*blockDim.x + threadIdx.x, BitCnt;
+	int i = blockIdx.x*blockDim.x + threadIdx.x;
 	hamm[i] = 28561;
 }
 
 __global__ void xorKernel(unsigned long* img1, unsigned long* img2, unsigned char* xorsum, int Dvalue)
 {
 	unsigned long xor;
-	int i = blockIdx.x*blockDim.x + threadIdx.x, BitCnt;
+	int i = blockIdx.x*blockDim.x + threadIdx.x;
 
 	if (threadIdx.x < blockDim.x - Dvalue)
 	{
@@ -136,7 +137,7 @@ __global__ void xorKernel(unsigned long* img1, unsigned long* img2, unsigned cha
 
 __global__ void yaddKernel(unsigned char* xorsum, unsigned short* hammy, int Dvalue)
 {
-	int i = blockIdx.x*blockDim.x + threadIdx.x, BitCnt;
+	int i = blockIdx.x*blockDim.x + threadIdx.x;
 	unsigned short *hammyc; 
 	hammyc = hammy + i;
 	*hammyc = 0;
@@ -154,7 +155,7 @@ __global__ void yaddKernel(unsigned char* xorsum, unsigned short* hammy, int Dva
 
 __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned char* dm, int Dvalue)
 {
-	int i = blockIdx.x*blockDim.x + threadIdx.x, BitCnt;
+	int i = blockIdx.x*blockDim.x + threadIdx.x;
 	unsigned short hammc = 0;
 
 	if ((blockIdx.x > 5) && (blockIdx.x < gridDim.x - 7) && (threadIdx.x > 5) && (threadIdx.x < blockDim.x - Dvalue))
@@ -210,30 +211,29 @@ int main()
 	{
 		cap >> frame; // get a new frame from camera
 		cvtColor(frame, gray, CV_BGR2GRAY);
+
+		x = gray.data;
 		
-		cudaMemcpy(d_x, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_x, x, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
 		negateKernel << <(N + 255) / 256, 256 >> >(d_x, N);
+
 /*		erodeKernel <<<row, column >>>(d_x, d_y);
 		dilateKernel << <row, column >> >(d_y, d_x);
 		ct11Kernel << <row, column >> >(d_x, ct_1);
 */
 		cudaMemcpy(x, d_x, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-		gray = Mat(row, column, CV_8UC1, x);
-
 		imshow("Camera 1",gray);
 
 
-		cap2 >> frame; // get a new frame from camera
+/*		cap2 >> frame; // get a new frame from camera
 		cvtColor(frame, gray, CV_BGR2GRAY);
 
-		cudaMemcpy(d_x, x, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_x, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
 		erodeKernel << <row, column >> >(d_x, d_y);
 		dilateKernel << <row, column >> >(d_y, d_x);
 		ct11Kernel << <row, column >> >(d_x, ct_2);
-		cudaMemcpy(x, d_x, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
-
-		gray = Mat(row, column, CV_8UC1, x);
+		cudaMemcpy(gray.data, d_x, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
 		imshow("Camera 2", gray);
 
@@ -251,7 +251,7 @@ int main()
 		gray = Mat(row, column, CV_8UC1, x);
 
 		imshow("DM", gray);
-
+*/
 
 		if (waitKey(1) >= 0) break;
 	}
