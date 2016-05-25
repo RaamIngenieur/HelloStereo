@@ -235,7 +235,8 @@ int main()
 
 	for (;;)
 	{
-		cap >> frame; // get a new frame from camera
+		//cap >> frame; // get a new frame from camera
+		frame = imread("frame_1_left.png", CV_LOAD_IMAGE_COLOR);
 		cvtColor(frame, gray, CV_BGR2GRAY);
 
 		
@@ -252,7 +253,8 @@ int main()
 		imshow("Camera 1",gray);
 
 
-		cap2 >> frame; // get a new frame from camera
+		//cap2 >> frame; // get a new frame from camera
+		frame = imread("frame_1_right.png", CV_LOAD_IMAGE_COLOR);
 		cvtColor(frame, gray, CV_BGR2GRAY);
 
 		cudaMemcpy(d_x2, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
@@ -267,7 +269,7 @@ int main()
 
 		hammKernel << <row, column >> >(hamm);
 
-		for (int Dvalue = 100; Dvalue >= 0; Dvalue-=10)
+		for (int Dvalue = 100; Dvalue >= 0; Dvalue-=1)
 		{
 			cudaDeviceSynchronize();
 			xorKernel << <row, column >> >(ct_1, ct_2, xor, Dvalue);
