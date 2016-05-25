@@ -185,7 +185,7 @@ __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned c
 			hammc += *(hammyc + k);
 		}
 
-		if (hammc < *hammmc)
+		if (hammc <= *hammmc)
 		{
 			*hammmc = hammc;
 			*dmc = Dvalue;
@@ -245,11 +245,11 @@ int main()
 		cudaDeviceSynchronize();
  	    dilateKernel << <row, column >> >(d_y1, d_z1);
 		cudaDeviceSynchronize();
-		ct11Kernel << <row, column >> >(d_z1, ct_1);
+		ct11Kernel << <row, column >> >(d_x1, ct_1);
 
 		cudaMemcpy(out.data, d_z1, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-		imshow("Camera 1",out);
+		imshow("Camera 1",gray);
 
 
 		cap2 >> frame; // get a new frame from camera
@@ -260,14 +260,14 @@ int main()
 		cudaDeviceSynchronize();
 		dilateKernel << <row, column >> >(d_y2, d_z2);
 		cudaDeviceSynchronize();
-		ct11Kernel << <row, column >> >(d_z2, ct_2);
+		ct11Kernel << <row, column >> >(d_x2, ct_2);
 		cudaMemcpy(out.data, d_z2, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-		imshow("Camera 2", out);
+		imshow("Camera 2", gray);
 
 		hammKernel << <row, column >> >(hamm);
 
-		for (int Dvalue = 200; Dvalue >= 0; Dvalue--)
+		for (int Dvalue = 100; Dvalue >= 0; Dvalue-=10)
 		{
 			cudaDeviceSynchronize();
 			xorKernel << <row, column >> >(ct_1, ct_2, xor, Dvalue);
