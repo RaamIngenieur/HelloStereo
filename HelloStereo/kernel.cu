@@ -7,6 +7,8 @@
 
 #include "opencv2/opencv.hpp"
 
+#define MODE CAM
+
 using namespace cv;
 
 cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
@@ -129,6 +131,12 @@ __global__ void hammKernel(unsigned short* hamm)
 	hamm[i] = 28561;
 }
 
+__global__ void dminitKernel(unsigned char* dm)
+{
+	int i = blockIdx.x*blockDim.x + threadIdx.x;
+	dm[i] = 0;
+}
+
 __global__ void xorKernel(unsigned long* img1, unsigned long* img2, unsigned char* xorsum, int Dvalue)
 {
 	unsigned long xor;
@@ -185,7 +193,7 @@ __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned c
 			hammc += *(hammyc + k);
 		}
 
-		if (hammc <= *hammmc)
+		if (hammc < *hammmc)
 		{
 			*hammmc = hammc;
 			*dmc = Dvalue;
@@ -197,26 +205,47 @@ __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned c
 
 int main()
 {
-		VideoCapture cap(1),cap2(2); // open the default camera
+#if MODE == CAM
+	VideoCapture cap(1);
+	cap.set(CAP_PROP_FRAME_HEIGHT,240);
+	cap.set(CAP_PROP_FRAME_WIDTH,320); 
+	cap.set(CAP_PROP_FPS, 20);
+	
+	VideoCapture cap2(2); // open the default camera
+
+	cap2.set(CAP_PROP_FRAME_HEIGHT, 240);
+	cap2.set(CAP_PROP_FRAME_WIDTH, 320);
+	cap2.set(CAP_PROP_FPS, 20);
+
+	std::cout << cap.isOpened() << std::endl << cap2.isOpened() << std::endl;
 	if (!cap.isOpened() || !cap2.isOpened())  // check if we succeeded
 		return -1;
+#endif
 
 	namedWindow("Camera 1", 1);
 	namedWindow("Camera 2", 1);
 	namedWindow("DM", 1);
 
+	Mat frame1, frame2;
+
 	int N, row, column;
-	
+#if MODE == CAM	
 	row = cap.get(CAP_PROP_FRAME_HEIGHT);
 	column = cap.get(CAP_PROP_FRAME_WIDTH);
-	N = row*column;
+#else
+	frame1 = imread("frame_1_left.png", CV_LOAD_IMAGE_COLOR);
+	frame2 = imread("frame_1_right.png", CV_LOAD_IMAGE_COLOR);
+	row = frame1.rows;
+	column = frame1.cols;
+#endif
 
-	std::cout << row << std::endl<< column << std::endl;
-	std::cout << cap2.get(CAP_PROP_FRAME_HEIGHT) << std::endl << cap2.get(CAP_PROP_FRAME_WIDTH) << std::endl;
+	N = row*column;
 
 	unsigned char *d_x1, *d_y1, *d_z1, *d_x2, *d_y2, *d_z2, *xor, *dm;
 	unsigned short *hammy, *hamm;
 	unsigned long *ct_1, *ct_2;
+
+	Mat gray, out = Mat(row, column, CV_8UC1, Scalar(255));
 
 	cudaMalloc(&d_x1, N*sizeof(unsigned char));
 	cudaMalloc(&d_y1, N*sizeof(unsigned char));
@@ -231,13 +260,15 @@ int main()
 	cudaMalloc(&ct_1, N*2*sizeof(unsigned long));
 	cudaMalloc(&ct_2, N*2*sizeof(unsigned long));
 
-	Mat frame, gray, out = Mat(row, column, CV_8UC1, Scalar(255));
-
 	for (;;)
 	{
-		//cap >> frame; // get a new frame from camera
-		frame = imread("frame_1_left.png", CV_LOAD_IMAGE_COLOR);
-		cvtColor(frame, gray, CV_BGR2GRAY);
+#if MODE == CAM
+		cap >> frame1; // get a new frame from camera
+		cap2 >> frame2; // get a new frame from camera
+#endif
+		
+		
+		cvtColor(frame1, gray, CV_BGR2GRAY);
 
 		
 		cudaMemcpy(d_x1, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);;
@@ -253,9 +284,8 @@ int main()
 		imshow("Camera 1",gray);
 
 
-		//cap2 >> frame; // get a new frame from camera
-		frame = imread("frame_1_right.png", CV_LOAD_IMAGE_COLOR);
-		cvtColor(frame, gray, CV_BGR2GRAY);
+
+		cvtColor(frame2, gray, CV_BGR2GRAY);
 
 		cudaMemcpy(d_x2, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);
 		erodeKernel << <row, column >> >(d_x2, d_y2);
@@ -268,8 +298,9 @@ int main()
 		imshow("Camera 2", gray);
 
 		hammKernel << <row, column >> >(hamm);
+		dminitKernel << <row, column >> >(dm);
 
-		for (int Dvalue = 100; Dvalue >= 0; Dvalue-=1)
+		for (int Dvalue = 0; Dvalue <= 100; Dvalue+=1)
 		{
 			cudaDeviceSynchronize();
 			xorKernel << <row, column >> >(ct_1, ct_2, xor, Dvalue);
