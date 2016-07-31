@@ -7,6 +7,8 @@
 
 #include "opencv2/opencv.hpp"
 
+#include "cuda_profiler_api.h"
+
 #define MODE CAM
 
 using namespace cv;
@@ -266,6 +268,7 @@ int main()
 		cap >> frame1; // get a new frame from camera
 		cap2 >> frame2; // get a new frame from camera
 #endif
+		cudaProfilerStart();
 
 
 		cvtColor(frame1, gray, CV_BGR2GRAY);
@@ -317,6 +320,8 @@ int main()
 
 		if (waitKey(1) >= 0) break;
 	}
+
+	cudaProfilerStop();
 
 	return 0;
 }
