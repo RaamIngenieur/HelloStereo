@@ -186,7 +186,7 @@ __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned c
 	unsigned short hammc = 0, *hammyc = hammy + i, *hammmc = hamm + i;
 	unsigned char* dmc = dm + i;
 
-	if ((r > 5) && (r < row - 7) && (c > 5) && (c < column - Dvalue))
+	if ((r > 5) && (r < row - 7) && (c > 5) && (c < column - 7 - Dvalue))
 	{
 		for (int k = -6; k <= 6; k++)
 		{
