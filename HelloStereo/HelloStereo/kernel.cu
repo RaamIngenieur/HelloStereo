@@ -93,7 +93,7 @@ __global__ void ct11Kernel(unsigned char* img, unsigned long* imgout)
 
 	int row = gridDim.x, column = blockDim.x, r = blockIdx.x, c = threadIdx.x;
 
-	int i = r*column + c, BitCnt=0;
+	int i = r*column + c, BitCnt = 0;
 
 	in = img + i;
 	out = imgout + i * 2;
@@ -117,7 +117,7 @@ __global__ void ct11Kernel(unsigned char* img, unsigned long* imgout)
 
 					if (BitCnt % 64 == 0)
 						out = out + 1;
-					
+
 				}
 			}
 		}
@@ -140,13 +140,13 @@ __global__ void dminitKernel(unsigned char* dm)
 __global__ void xorKernel(unsigned long* img1, unsigned long* img2, unsigned char* xorsum, int Dvalue)
 {
 	unsigned long xor;
-	int r = blockIdx.x,column = blockDim.x, c = threadIdx.x;
+	int r = blockIdx.x, column = blockDim.x, c = threadIdx.x;
 
 	int i = r*column + c;
 
 	if (c < column - Dvalue)
 	{
-		xor = img1[(i+Dvalue) * 2] ^ img2[i * 2];
+		xor = img1[(i + Dvalue) * 2] ^ img2[i * 2];
 		xorsum[i] = __popcll(xor);
 		xor = img1[(i + Dvalue) * 2 + 1] ^ img2[i * 2 + 1];
 		xorsum[i] += __popcll(xor);
@@ -172,7 +172,7 @@ __global__ void yaddKernel(unsigned char* xorsum, unsigned short* hammy, int Dva
 		{
 			*hammyc += *(xorc + k*column);
 		}
-		
+
 	}
 
 }
@@ -183,7 +183,7 @@ __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned c
 
 	int i = r*column + c;
 
-	unsigned short hammc = 0,*hammyc = hammy +i, *hammmc = hamm +i;
+	unsigned short hammc = 0, *hammyc = hammy + i, *hammmc = hamm + i;
 	unsigned char* dmc = dm + i;
 
 	if ((r > 5) && (r < row - 7) && (c > 5) && (c < column - Dvalue))
@@ -206,16 +206,16 @@ __global__ void dmKernel(unsigned short* hammy, unsigned short* hamm, unsigned c
 int main()
 {
 #if MODE == CAM
-	VideoCapture cap(1);
-	cap.set(CAP_PROP_FRAME_HEIGHT,240);
-	cap.set(CAP_PROP_FRAME_WIDTH,320); 
-	cap.set(CAP_PROP_FPS, 20);
-	
+	VideoCapture cap(0);
+	cap.set(CV_CAP_PROP_FRAME_HEIGHT, 240);
+	cap.set(CV_CAP_PROP_FRAME_WIDTH, 320);
+	cap.set(CV_CAP_PROP_FPS, 20);
+
 	VideoCapture cap2(2); // open the default camera
 
-	cap2.set(CAP_PROP_FRAME_HEIGHT, 240);
-	cap2.set(CAP_PROP_FRAME_WIDTH, 320);
-	cap2.set(CAP_PROP_FPS, 20);
+	cap2.set(CV_CAP_PROP_FRAME_HEIGHT, 240);
+	cap2.set(CV_CAP_PROP_FRAME_WIDTH, 320);
+	cap2.set(CV_CAP_PROP_FPS, 20);
 
 	std::cout << cap.isOpened() << std::endl << cap2.isOpened() << std::endl;
 	if (!cap.isOpened() || !cap2.isOpened())  // check if we succeeded
@@ -230,8 +230,8 @@ int main()
 
 	int N, row, column;
 #if MODE == CAM	
-	row = cap.get(CAP_PROP_FRAME_HEIGHT);
-	column = cap.get(CAP_PROP_FRAME_WIDTH);
+	row = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+	column = cap.get(CV_CAP_PROP_FRAME_WIDTH);
 #else
 	frame1 = imread("frame_1_left.png", CV_LOAD_IMAGE_COLOR);
 	frame2 = imread("frame_1_right.png", CV_LOAD_IMAGE_COLOR);
@@ -257,8 +257,8 @@ int main()
 	cudaMalloc(&dm, N*sizeof(unsigned char));
 	cudaMalloc(&hammy, N*sizeof(unsigned short));
 	cudaMalloc(&hamm, N*sizeof(unsigned short));
-	cudaMalloc(&ct_1, N*2*sizeof(unsigned long));
-	cudaMalloc(&ct_2, N*2*sizeof(unsigned long));
+	cudaMalloc(&ct_1, N * 2 * sizeof(unsigned long));
+	cudaMalloc(&ct_2, N * 2 * sizeof(unsigned long));
 
 	for (;;)
 	{
@@ -266,22 +266,22 @@ int main()
 		cap >> frame1; // get a new frame from camera
 		cap2 >> frame2; // get a new frame from camera
 #endif
-		
-		
+
+
 		cvtColor(frame1, gray, CV_BGR2GRAY);
 
-		
+
 		cudaMemcpy(d_x1, gray.data, N*sizeof(unsigned char), cudaMemcpyHostToDevice);;
 
 		erodeKernel << <row, column >> >(d_x1, d_y1);
 		cudaDeviceSynchronize();
- 	    dilateKernel << <row, column >> >(d_y1, d_z1);
+		dilateKernel << <row, column >> >(d_y1, d_z1);
 		cudaDeviceSynchronize();
 		ct11Kernel << <row, column >> >(d_x1, ct_1);
 
 		cudaMemcpy(out.data, d_z1, N*sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-		imshow("Camera 1",gray);
+		imshow("Camera 1", gray);
 
 
 
@@ -300,7 +300,7 @@ int main()
 		hammKernel << <row, column >> >(hamm);
 		dminitKernel << <row, column >> >(dm);
 
-		for (int Dvalue = 0; Dvalue <= 100; Dvalue+=1)
+		for (int Dvalue = 0; Dvalue <= 100; Dvalue += 1)
 		{
 			cudaDeviceSynchronize();
 			xorKernel << <row, column >> >(ct_1, ct_2, xor, Dvalue);
